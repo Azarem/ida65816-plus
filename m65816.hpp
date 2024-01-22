@@ -210,8 +210,8 @@ const struct opcode_info_t& get_opcode_info(uint8 opcode);
      || ((op) == M65816_ply))
 
 //------------------------------------------------------------------------
-int     idaapi ana(insn_t* _insn);
-int     idaapi emu(const insn_t& insn);
+//int     idaapi ana(insn_t *_insn);
+//int     idaapi emu(const insn_t &insn);
 
 //------------------------------------------------------------------------
 class snes_addr_t;
@@ -248,6 +248,7 @@ struct m65816_t : public procmod_t
 	ea_t xlat(ea_t address);
 
 	void handle_operand(const op_t& x, bool read_access, const insn_t& insn);
+	int ana(insn_t* _insn);
 	int emu(const insn_t& insn);
 
 	void m65816_assumes(outctx_t& ctx);

@@ -1,5 +1,6 @@
 
 #include "m65816.hpp"
+#include "util.hpp"
 #include "bt.hpp"
 
 //----------------------------------------------------------------------
@@ -56,6 +57,11 @@ void m65816_t::handle_operand(const op_t& x, bool read_access, const insn_t& ins
 			goto MAKE_DREF;
 
 		case rAbsXi:    // "(abs,X)"
+
+			//Process jump table
+			if (handle_jump_table(insn, x))
+				break;
+
 			ea = xlat(map_code_ea(insn, x)); // jmp, jsr
 			goto MAKE_DREF;
 
@@ -66,6 +72,7 @@ void m65816_t::handle_operand(const op_t& x, bool read_access, const insn_t& ins
 		default:
 			goto MAKE_IMMD;
 		}
+		break;
 
 	case o_mem:
 	case o_mem_far:
@@ -239,13 +246,15 @@ int m65816_t::emu(const insn_t& insn)
 			else
 				ftea = xlat(ftea);
 
-			split_sreg_range(ftea, rFm, get_sreg(insn.ea, rFm), SR_auto);
-			split_sreg_range(ftea, rFx, get_sreg(insn.ea, rFx), SR_auto);
-			split_sreg_range(ftea, rFe, get_sreg(insn.ea, rFe), SR_auto);
-			split_sreg_range(ftea, rPB, ftea >> 16, SR_auto);
-			split_sreg_range(ftea, rB, get_sreg(insn.ea, rB), SR_auto);
-			split_sreg_range(ftea, rDs, get_sreg(insn.ea, rDs), SR_auto);
-			split_sreg_range(ftea, rD, get_sreg(insn.ea, rD), SR_auto);
+			xfer_sreg(insn.ea, ftea);
+
+			//split_sreg_range(ftea, rFm, get_sreg(insn.ea, rFm), SR_auto);
+			//split_sreg_range(ftea, rFx, get_sreg(insn.ea, rFx), SR_auto);
+			//split_sreg_range(ftea, rFe, get_sreg(insn.ea, rFe), SR_auto);
+			//split_sreg_range(ftea, rPB, ftea >> 16, SR_auto);
+			//split_sreg_range(ftea, rB, get_sreg(insn.ea, rB), SR_auto);
+			//split_sreg_range(ftea, rDs, get_sreg(insn.ea, rDs), SR_auto);
+			//split_sreg_range(ftea, rD, get_sreg(insn.ea, rD), SR_auto);
 		}
 	}
 	break;
@@ -290,5 +299,5 @@ int m65816_t::emu(const insn_t& insn)
 	}
 
 	return 1;
-}
+	}
 

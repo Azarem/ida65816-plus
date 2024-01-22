@@ -1,5 +1,6 @@
 
 #include "m65816.hpp"
+#include "util.hpp"
 
 #define DI(itype, len, addr_mode, cpus) { (itype), (addr_mode), (cpus) },
 #define DV(itype, len, addr_mode, cpus, flags) { (itype), (addr_mode), (cpus), (flags) },
@@ -350,11 +351,12 @@ inline bool is_xy_16_sensitive_op(const struct opcode_info_t& opinfo)
 }
 
 // ---------------------------------------------------------------------------
-int idaapi ana(insn_t* _insn)
+int m65816_t::ana(insn_t* _insn)
 {
 	insn_t& insn = *_insn;
 	insn.Op1.dtype = dt_byte;
 	uint8 code = insn.get_next_byte();
+	ea_t ftea;
 
 	// Fetch instruction info
 	const struct opcode_info_t& opinfo = get_opcode_info(code);
@@ -373,7 +375,9 @@ int idaapi ana(insn_t* _insn)
 	case STACK_INT:
 		// COP & BRK; they are 1-byte, but have
 		// another, signature byte.
-		insn.get_next_byte();
+		insn.Op1.type = o_imm;
+		insn.Op1.value = insn.get_next_byte();
+		insn.Op1.dtype = dt_byte;
 		break;
 	case STACK_ABS:
 		// Always 16 bits
@@ -429,6 +433,16 @@ int idaapi ana(insn_t* _insn)
 		if (insn.itype == M65816_jsr || insn.itype == M65816_jmp)
 		{
 			insn.Op1.type = o_near;
+			/*		ftea = map_code_ea(insn, insn.Op1);
+					func_t* func = get_func(ftea);
+					if (!func) {
+						add_func(ftea);
+						func = get_func(ftea);
+					}
+
+					if (func) {
+						xfer_sreg(func->end_ea - 1, insn.ea + insn.size);
+					}*/
 		}
 		else if (insn.itype == M65816_stx || insn.itype == M65816_sty
 			|| insn.itype == M65816_ldx || insn.itype == M65816_ldy
@@ -444,10 +458,22 @@ int idaapi ana(insn_t* _insn)
 	case ABS_LONG:
 		insn.Op1.type = o_mem_far;
 		insn.Op1.addr = insn.get_next_word();
-		insn.Op1.addr |= insn.get_next_byte() << 16;
-		insn.Op1.full_target_ea = insn.Op1.addr;
+		ftea = insn.Op1.addr |= static_cast<unsigned long long>(insn.get_next_byte()) << 16;
+		insn.Op1.full_target_ea = ftea;
 		if (insn.itype == M65816_jsl || insn.itype == M65816_jml)
+		{
 			insn.Op1.type = o_far;
+
+			/*	func_t* func = get_func(ftea);
+				if (!func) {
+					add_func(ftea);
+					func = get_func(ftea);
+				}
+
+				if (func) {
+					xfer_sreg(func->end_ea - 1, insn.ea + insn.size);
+				}*/
+		}
 		else
 			insn.Op1.dtype = is_acc_16_bits(insn) ? dt_word : dt_byte;
 		break;
@@ -485,6 +511,8 @@ int idaapi ana(insn_t* _insn)
 		insn.Op1.phrase = rAbsXi;
 		insn.Op1.addr = insn.get_next_word();
 		insn.Op1.dtype = dt_word;
+		if (insn.itype >= M65816_jml && insn.itype <= M65816_jsr)
+			insn.Op1.full_target_ea = insn.Op1.addr;
 		break;
 	case DP:
 		insn.Op1.type = o_displ;

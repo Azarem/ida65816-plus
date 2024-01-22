@@ -8,7 +8,7 @@
 #include "m65816.hpp"
 int data_id;
 
-#include "../../ldr/snes/addr.cpp"
+#include "../../ldr/snes/addr.hpp"
 //--------------------------------------------------------------------------
 static const char* const RegNames[] =
 {

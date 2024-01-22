@@ -81,6 +81,7 @@ void out_m65816_t::out_addr_near(const op_t& x)
 {
 	ea_t orig_ea = map_code_ea(insn, x);
 	ea_t ea = pm().xlat(orig_ea);
+
 	if (!out_name_expr(x, ea, BADADDR))
 	{
 		out_tagon(COLOR_ERROR);
