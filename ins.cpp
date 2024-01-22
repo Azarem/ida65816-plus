@@ -2,13 +2,13 @@
 #include "m65816.hpp"
 #include "ins.hpp"
 
-instruc_t Instructions[] =
+const instruc_t Instructions[] =
 {
 
   { "",           0                               },
   { "ADC",        CF_USE1                         },      // A <- (A) + M + C
   { "AND",        CF_USE1                         },      // A <- A /\ M, C <- ~A7
-  { "ASL",        CF_CHG1|CF_SHFT                 },      // C <- A7, A <- (A) << 1
+  { "ASL",        CF_CHG1 | CF_SHFT               },      // C <- A7, A <- (A) << 1
   { "BCC",        CF_USE1                         },      // if C=0, PC = PC + offset
   { "BCS",        CF_USE1                         },      // if C=1, PC = PC + offset
   { "BEQ",        CF_USE1                         },      // if Z=1, PC = PC + offset
@@ -16,9 +16,9 @@ instruc_t Instructions[] =
   { "BMI",        CF_USE1                         },      // if N=1, PC = PC + offset
   { "BNE",        CF_USE1                         },      // if Z=0, PC = PC + offset
   { "BPL",        CF_USE1                         },      // if N=0, PC = PC + offset
-  { "BRA",        CF_USE1|CF_STOP                 },      // Branch always
+  { "BRA",        CF_USE1 | CF_STOP               },      // Branch always
   { "BRK",        0                               },      // Stack <- PC, PC <- ($fffe)  NOTE: Usually it stops the processor. However, some games (e.g. Dragon Quest VI) use BRK as a customized opcode, by overriding the behavior through the interrupt vector.
-  { "BRL",        CF_USE1|CF_STOP                 },      // Branch always long
+  { "BRL",        CF_USE1 | CF_STOP               },      // Branch always long
   { "BVC",        CF_USE1                         },      // if V=0, PC = PC + offset
   { "BVS",        CF_USE1                         },      // if V=1, PC = PC + offset
   { "CLC",        0                               },      // C <- 0
@@ -29,23 +29,23 @@ instruc_t Instructions[] =
   { "COP",        0                               },      // Coprocessor enable
   { "CPX",        CF_USE1                         },      // (X - M) -> NZC
   { "CPY",        CF_USE1                         },      // (Y - M) -> NZC
-  { "DEC",        CF_USE1|CF_CHG1                 },      // M <- (M) - 1
+  { "DEC",        CF_USE1 | CF_CHG1               },      // M <- (M) - 1
   { "DEX",        0                               },      // X <- (X) - 1
   { "DEY",        0                               },      // Y <- (Y) - 1
   { "EOR",        CF_USE1                         },      // A <- (A) \-/ M
-  { "INC",        CF_USE1|CF_CHG1                 },      // M <- (M) + 1
+  { "INC",        CF_USE1 | CF_CHG1               },      // M <- (M) + 1
   { "INX",        0                               },      // X <- (X) +1
   { "INY",        0                               },      // Y <- (Y) + 1
-  { "JML",        CF_USE1|CF_STOP                 },      // K,PC <- Long Address
-  { "JMP",        CF_USE1|CF_STOP                 },      // PC <- Address
-  { "JSL",        CF_USE1|CF_CALL                 },      // Stack <- PC, PC <- Long Address
-  { "JSR",        CF_USE1|CF_CALL                 },      // Stack <- PC, PC <- Address
+  { "JML",        CF_USE1 | CF_STOP               },      // K,PC <- Long Address
+  { "JMP",        CF_USE1 | CF_STOP               },      // PC <- Address
+  { "JSL",        CF_USE1 | CF_CALL               },      // Stack <- PC, PC <- Long Address
+  { "JSR",        CF_USE1 | CF_CALL               },      // Stack <- PC, PC <- Address
   { "LDA",        CF_USE1                         },      // A <- M
   { "LDX",        CF_USE1                         },      // X <- M
   { "LDY",        CF_USE1                         },      // Y <- M
-  { "LSR",        CF_CHG1|CF_SHFT                 },      // C <- A0, A <- (A) >> 1
-  { "MVN",        CF_USE1|CF_USE2                 },      // Block move next
-  { "MVP",        CF_USE1|CF_USE2                 },      // Block move previous
+  { "LSR",        CF_CHG1 | CF_SHFT               },      // C <- A0, A <- (A) >> 1
+  { "MVN",        CF_USE1 | CF_USE2               },      // Block move next
+  { "MVP",        CF_USE1 | CF_USE2               },      // Block move previous
   { "NOP",        0                               },      // [no operation]
   { "ORA",        CF_USE1                         },      // A <- (A) V M
   { "PEA",        CF_USE1                         },      // Stack <- Address
@@ -65,8 +65,8 @@ instruc_t Instructions[] =
   { "PLX",        0                               },      // Pull X register
   { "PLY",        0                               },      // Pull Y register
   { "REP",        CF_USE1                         },      // Reset bits
-  { "ROL",        CF_CHG1|CF_SHFT                 },      // C <- A7 & A <- A << 1 + C
-  { "ROR",        CF_CHG1|CF_SHFT                 },      // C<-A0 & A<- (A7=C + A>>1)
+  { "ROL",        CF_CHG1 | CF_SHFT               },      // C <- A7 & A <- A << 1 + C
+  { "ROR",        CF_CHG1 | CF_SHFT               },      // C<-A0 & A<- (A7=C + A>>1)
   { "RTI",        CF_STOP                         },      // P <- (Stack), PC <-(Stack)
   { "RTL",        CF_STOP                         },      // K,PC <- (Stack)
   { "RTS",        CF_STOP                         },      // PC <- (Stack)
@@ -85,8 +85,8 @@ instruc_t Instructions[] =
   { "TCD",        0                               },      // D <- (A)
   { "TCS",        0                               },      // S <- (A)
   { "TDC",        0                               },      // A <- (D)
-  { "TRB",        CF_USE1|CF_CHG1                 },      // Test and reset bits
-  { "TSB",        CF_USE1|CF_CHG1                 },      // Test and set bits
+  { "TRB",        CF_USE1 | CF_CHG1               },      // Test and reset bits
+  { "TSB",        CF_USE1 | CF_CHG1               },      // Test and set bits
   { "TSC",        0                               },      // A <- (S)
   { "TSX",        0                               },      // X <- (S)
   { "TXA",        0                               },      // A <- (X)
@@ -103,7 +103,7 @@ instruc_t Instructions[] =
 CASSERT(qnumber(Instructions) == M65816_last);
 
 
-struct addrmode_info_t AddressingModes[] =
+const struct addrmode_info_t AddressingModes[] =
 {
   { "Absolute" },                            // ABS
   { "Absolute Indexed X" },                  // ABS_IX,

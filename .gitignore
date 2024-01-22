@@ -192,3 +192,4 @@ UpgradeLog*.htm
 FakesAssemblies/
 
 # VisualStudio.gitignore end ---------------------------------------------------
+/.vs
