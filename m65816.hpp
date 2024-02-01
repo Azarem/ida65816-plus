@@ -11,6 +11,8 @@
 
 // Direct Memory Reference with full-length address
 #define o_mem_far       o_idpspec0
+// CoProcessor command (variable-length)
+#define o_cop           o_idpspec1
 
 // If there is an address in 'Op[N].full_target_ea',
 // it means the target address of a branch/jump
@@ -72,7 +74,10 @@ enum M65816_registers
 	rFe,
 
 	// program bank register
-	rPB
+	rPB,
+
+	rOm,
+	rOx
 };
 
 
@@ -180,8 +185,33 @@ struct opcode_info_t
 	uint16         flags;        // OR'd opcode_flags_t
 };
 
-inline bool is_acc_16_bits(ea_t ea) { return (get_sreg(ea, rFm) == 0); }
-inline bool is_xy_16_bits(ea_t ea) { return (get_sreg(ea, rFx) == 0); }
+
+static bool get_logical_flags(ea_t ea, int rg) {
+	sreg_range_t range, other;
+	int org = rg == rFm ? rOm : rOx;
+
+	bool has_range = get_sreg_range(&range, ea, rg);
+	bool has_other = get_sreg_range(&other, ea, org);
+
+	if (has_range) {
+		if (has_other) {
+			if (other.start_ea > range.start_ea)
+				return other.val == 0;
+			if (range.start_ea > other.start_ea || range.val != other.val)
+				return range.val != 0;
+		}
+		else
+			return range.val != 0;
+	}
+	else if (has_other)
+		return other.val == 0;
+
+	//Default
+	return false;
+}
+
+inline bool is_acc_16_bits(ea_t ea) { return !get_logical_flags(ea, rFm); }
+inline bool is_xy_16_bits(ea_t ea) { return !get_logical_flags(ea, rFx); }
 inline bool is_acc_16_bits(const insn_t& insn) { return is_acc_16_bits(insn.ea); }
 inline bool is_xy_16_bits(const insn_t& insn) { return is_xy_16_bits(insn.ea); }
 

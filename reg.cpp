@@ -8,7 +8,8 @@
 #include "m65816.hpp"
 int data_id;
 
-#include "../../ldr/snes/addr.hpp"
+#include "../../ldr/snes/addr.cpp"
+#include "util.hpp"
 //--------------------------------------------------------------------------
 static const char* const RegNames[] =
 {
@@ -26,7 +27,10 @@ static const char* const RegNames[] =
   "x", // Holds indices-are-8-bits flag
   "e", // Holds emulation mode flag
 
-  "PB" // Program bank
+  "PB", // Program bank
+
+  "m0",
+  "x0"
 };
 
 
@@ -253,10 +257,14 @@ ssize_t idaapi m65816_t::on_event(ssize_t msgid, va_list va)
 		}
 		ioh.set_device_name(device_ptr, IORESP_ALL);
 
-		set_default_sreg_value(nullptr, rFm, 1);
-		set_default_sreg_value(nullptr, rFx, 1);
-		set_default_sreg_value(nullptr, rFe, 1);
+		//It is more appropriate to clear m/x/e since the RESET vector should do this automatically
+		//Having these cleared by default SHOULD mean that new code will pick up a post-reset state
+		set_default_sreg_value(nullptr, rFm, 0);
+		set_default_sreg_value(nullptr, rFx, 0);
+		set_default_sreg_value(nullptr, rFe, 0);
 		set_default_sreg_value(nullptr, rD, 0);
+		set_default_sreg_value(nullptr, rOm, 1);
+		set_default_sreg_value(nullptr, rOx, 1);
 
 		// see processor_t::ev_creating_segm for the following registers
 		//set_default_sreg_value(nullptr, rPB, 0);
@@ -267,12 +275,15 @@ ssize_t idaapi m65816_t::on_event(ssize_t msgid, va_list va)
 		{
 			ea_t reset_ea = xlat(inf_get_start_ip());
 			ea_t sea = getseg(reset_ea)->start_ea;
-			split_sreg_range(reset_ea, rFm, get_sreg(sea, rFm), SR_auto);
-			split_sreg_range(reset_ea, rFx, get_sreg(sea, rFx), SR_auto);
-			split_sreg_range(reset_ea, rFe, get_sreg(sea, rFe), SR_auto);
-			split_sreg_range(reset_ea, rPB, 0, SR_auto);
-			split_sreg_range(reset_ea, rB, 0, SR_auto);
-			split_sreg_range(reset_ea, rD, get_sreg(sea, rD), SR_auto);
+
+			xfer_sregs(sea, reset_ea);
+
+			/*	split_sreg_range(reset_ea, rFm, get_sreg(sea, rFm), SR_auto);
+				split_sreg_range(reset_ea, rFx, get_sreg(sea, rFx), SR_auto);
+				split_sreg_range(reset_ea, rFe, get_sreg(sea, rFe), SR_auto);
+				split_sreg_range(reset_ea, rPB, 0, SR_auto);
+				split_sreg_range(reset_ea, rB, 0, SR_auto);
+				split_sreg_range(reset_ea, rD, get_sreg(sea, rD), SR_auto);*/
 		}
 	}
 	break;
@@ -714,7 +725,7 @@ RegNames,                     // Register names
 qnumber(RegNames),            // Number of registers
 
 rCs,                          // first segreg
-rPB,                          // last  segreg
+rOx,                          // last  segreg
 0,                            // size of a segment register
 rCs,                          // number of CS register
 rDs,                          // number of DS register

@@ -10,6 +10,8 @@
 
 #include "m65816.hpp"
 #include "bt.hpp"
+#include "util.hpp"
+#include "ida/gaia_cop.hpp"
 
  //----------------------------------------------------------------------
 class out_m65816_t : public outctx_t
@@ -154,10 +156,12 @@ bool out_m65816_t::out_operand(const op_t& x)
 	case o_reg:
 		out_register(ph.reg_names[x.reg]);
 		break;
+
 	case o_imm:
 		out_symbol('#');
 		out_value(x, 0);
 		break;
+
 	case o_near:
 	case o_far:
 		if (insn.indirect)
@@ -180,6 +184,7 @@ bool out_m65816_t::out_operand(const op_t& x)
 		if (orig_ea != ea)
 			print_orig_ea(x);
 		break;
+
 	case o_mem:
 	case o_mem_far:
 	{
@@ -208,6 +213,7 @@ bool out_m65816_t::out_operand(const op_t& x)
 			print_orig_ea(x);
 	}
 	break;
+
 	case o_displ:
 		switch (x.phrase)
 		{
@@ -217,12 +223,14 @@ bool out_m65816_t::out_operand(const op_t& x)
 			out_char(' ');
 			out_value(x, OOF_ADDR | OOFS_NOSIGN | OOFW_8);
 			break;
+
 		case rD:
 			out_register(ph.reg_names[x.phrase]);
 			out_symbol(',');
 			out_char(' ');
 			out_dp(x);
 			break;
+
 		case rSiY:
 			out_symbol('(');
 			out_register("S");
@@ -234,6 +242,7 @@ bool out_m65816_t::out_operand(const op_t& x)
 			out_register("Y");
 			out_symbol(')');
 			break;
+
 		case rDi:
 		case rSDi:
 			out_symbol('(');
@@ -243,6 +252,7 @@ bool out_m65816_t::out_operand(const op_t& x)
 			out_dp(x);
 			out_symbol(')');
 			break;
+
 		case rDiL:
 			out_symbol('[');
 			out_register("D");
@@ -251,6 +261,7 @@ bool out_m65816_t::out_operand(const op_t& x)
 			out_dp(x);
 			out_symbol(']');
 			break;
+
 		case rDX:
 		case rDY:
 			out_register("D");
@@ -261,6 +272,7 @@ bool out_m65816_t::out_operand(const op_t& x)
 			out_char(' ');
 			out_register((x.phrase == rDX) ? "X" : "Y");
 			break;
+
 		case riDX:
 			out_symbol('(');
 			out_register("D");
@@ -272,6 +284,7 @@ bool out_m65816_t::out_operand(const op_t& x)
 			out_register("X");
 			out_symbol(')');
 			break;
+
 		case rDiY:
 		case rDiLY:
 			out_symbol(x.phrase == rDiLY ? '[' : '(');
@@ -284,16 +297,19 @@ bool out_m65816_t::out_operand(const op_t& x)
 			out_char(' ');
 			out_register("Y");
 			break;
+
 		case rAbsi:
 			out_symbol('(');
 			out_addr_near_b(x);
 			out_symbol(')');
 			break;
+
 		case rAbsiL:
 			out_symbol('[');
 			out_addr_near_b(x);
 			out_symbol(']');
 			break;
+
 		case rAbsX:
 		case rAbsY:
 			out_addr_near_b(x);
@@ -301,6 +317,7 @@ bool out_m65816_t::out_operand(const op_t& x)
 			out_char(' ');
 			out_register(x.phrase == rAbsY ? "Y" : "X");
 			break;
+
 		case rAbsLX:
 		{
 			ea_t lorig_ea = x.addr;
@@ -315,6 +332,7 @@ bool out_m65816_t::out_operand(const op_t& x)
 				print_orig_ea(x);
 		}
 		break;
+
 		case rAbsXi:
 			out_symbol('(');
 			out_addr_near(x); // jmp, jsr
@@ -327,13 +345,37 @@ bool out_m65816_t::out_operand(const op_t& x)
 			goto err;
 		}
 		break;
+
 	case o_void:
 		return 0;
+
+	case o_cop:
+		//Start of command arguments
+		if (x.n == 0) {
+			out_symbol('[');
+			out_symbol(hex_table[x.value >> 4 & 0xF]);
+			out_symbol(hex_table[x.value & 0xF]);
+			out_symbol(']');
+		}
+		else if (x.addr) { //Address value
+			if (x.dtype == dt_dword)
+				out_addr_far(x);
+			else
+				out_addr_near(x);
+		}
+		else { //Immediate value
+			out_symbol('#');
+			out_value(x, 0);
+		}
+
+		break;
+
 	default:
 	err:
 		warning("out: %a: bad optype %d", insn.ea, x.type);
 		break;
 	}
+
 	return 1;
 }
 
@@ -370,16 +412,16 @@ void m65816_t::m65816_assumes(outctx_t& ctx)
 				|| (prev_exists && prev.val != curval)
 				|| forced_print(ctx.F, reg))
 			{
-				if (reg == rFm || reg == rFx)
+				/*if (reg == rFm || reg == rFx)
 				{
 					ctx.gen_printf(0, ".%c%d", reg == rFm ? 'A' : 'I', curval > 0 ? 8 : 16);
 				}
 				else
-				{
-					if (ptr != buf)
-						APPCHAR(ptr, end, ' ');
-					ptr += qsnprintf(ptr, end - ptr, "%s=%a", ph.reg_names[reg], curval);
-				}
+				{*/
+				if (ptr != buf)
+					APPCHAR(ptr, end, ' ');
+				ptr += qsnprintf(ptr, end - ptr, "%s=%a", ph.reg_names[reg], curval);
+				//}
 			}
 		}
 	}
@@ -391,13 +433,27 @@ void m65816_t::m65816_assumes(outctx_t& ctx)
 void out_m65816_t::out_insn(void)
 {
 	out_mnemonic();
-	out_one_operand(0);
-	if (insn.Op2.type != o_void)
-	{
-		out_symbol(',');
-		out_char(' ');
-		out_one_operand(1);
+
+	for (int i = 0; i < 8; i++) {
+		if (insn.ops[i].type == o_void)
+			break;
+
+		if (i > 0) {
+			out_symbol(',');
+			out_char(' ');
+		}
+
+		out_one_operand(i);
 	}
+
+	//out_one_operand(0);
+
+	//if (insn.Op2.type != o_void)
+	//{
+	//	out_symbol(',');
+	//	out_char(' ');
+	//	out_one_operand(1);
+	//}
 
 	out_immchar_cmts();
 	flush_outbuf();

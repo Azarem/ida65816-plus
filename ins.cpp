@@ -26,7 +26,7 @@ const instruc_t Instructions[] =
   { "CLI",        0                               },      // I <- 0
   { "CLV",        0                               },      // V <- 0
   { "CMP",        CF_USE1                         },      // (A - M) -> NZC
-  { "COP",        0                               },      // Coprocessor enable
+  { "COP",        CF_USE1 | CF_USE2 | CF_USE3 | CF_USE4 | CF_USE5 | CF_USE6 | CF_USE7 | CF_USE8 },      // Coprocessor enable
   { "CPX",        CF_USE1                         },      // (X - M) -> NZC
   { "CPY",        CF_USE1                         },      // (Y - M) -> NZC
   { "DEC",        CF_USE1 | CF_CHG1               },      // M <- (M) - 1

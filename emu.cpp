@@ -93,7 +93,7 @@ void m65816_t::handle_operand(const op_t& x, bool read_access, const insn_t& ins
 		}
 		else
 		{
-			bool iscall = has_insn_feature(insn.itype, CF_CALL);
+			bool iscall = is_call_insn(insn);
 			cref_t creftype = x.type == o_near
 				? iscall ? fl_CN : fl_JN
 				: iscall ? fl_CF : fl_JF;
@@ -104,44 +104,83 @@ void m65816_t::handle_operand(const op_t& x, bool read_access, const insn_t& ins
 	}
 	break;
 
+	case o_cop:
+
+		//Only process arguments with an address
+		if (x.addr) {
+			if (x.dtype == dt_dword)
+				ea = xlat(x.addr);
+			if (x.specflag3) { //Is code?
+
+				if (x.dtype != dt_dword)
+					ea = map_code_ea(insn, x);
+				insn.add_cref(ea, x.offb, fl_CN);
+			}
+			else {
+				if (x.dtype != dt_dword)
+					ea = map_data_ea(insn, x);
+				insn.add_dref(ea, x.offb, read_access ? dr_R : dr_W);
+			}
+		}
+
+		break;
+
 	default:
 		INTERR(558);
 	}
 }
 
-//----------------------------------------------------------------------
-/**
- * Get what is known of the status flags register,
- * at address 'ea'.
- *
- * ea      : The effective address.
- *
- * returns : A 9-bit value, composed with what is known of the
- *           status register at the 'ea' effective address. Its
- *           layout is the following:
- * +----------------------------------------------------------------+
- * | 0 | 0 | 0 | 0 | 0 | 0 | 0 | e || n | v | m | x | d | i | z | c |
- * +----------------------------------------------------------------+
- *  15                                7                           0
- *           Note that a 16-bit value is returned, in order to
- *           take the emulation-mode flag into consideration.
- */
-static uint16 get_cpu_status(ea_t ea)
-{
-	return (get_sreg(ea, rFe) << 8) | (get_sreg(ea, rFm) << 5) | (get_sreg(ea, rFx) << 4);
-}
+////----------------------------------------------------------------------
+///**
+// * Get what is known of the status flags register,
+// * at address 'ea'.
+// *
+// * ea      : The effective address.
+// *
+// * returns : A 9-bit value, composed with what is known of the
+// *           status register at the 'ea' effective address. Its
+// *           layout is the following:
+// * +----------------------------------------------------------------+
+// * | 0 | 0 | 0 | 0 | 0 | M | X | e || n | v | m | x | d | i | z | c |
+// * +----------------------------------------------------------------+
+// *  15                                7                           0
+// *           Note that a 16-bit value is returned, in order to
+// *           take the emulation-mode flag into consideration.
+// */
+//static uint16 get_cpu_status(ea_t ea)
+//{
+//	return (get_sreg(ea, rFx) ? 0x10 : 0)
+//		| (get_sreg(ea, rFm) ? 0x20 : 0)
+//		| (get_sreg(ea, rFe) ? 0x100 : 0)
+//		| (get_sreg(ea, rOx) ? 0x200 : 0)
+//		| (get_sreg(ea, rOm) ? 0x400 : 0);
+//}
 
 //----------------------------------------------------------------------
 
 int m65816_t::emu(const insn_t& insn)
 {
 	uint32 Feature = insn.get_canon_feature(ph);
-	flow = ((Feature & CF_STOP) == 0);
+	flow = ((Feature & CF_STOP) == 0) && !should_stop_flow(insn);
 
 	if (Feature & CF_USE1) handle_operand(insn.Op1, 1, insn);
 	if (Feature & CF_USE2) handle_operand(insn.Op2, 1, insn);
+	if (Feature & CF_USE3) handle_operand(insn.Op3, 1, insn);
+	if (Feature & CF_USE4) handle_operand(insn.Op4, 1, insn);
+	if (Feature & CF_USE5) handle_operand(insn.Op5, 1, insn);
+	if (Feature & CF_USE6) handle_operand(insn.Op6, 1, insn);
+	if (Feature & CF_USE7) handle_operand(insn.Op7, 1, insn);
+	if (Feature & CF_USE8) handle_operand(insn.Op8, 1, insn);
+
 	if (Feature & CF_CHG1) handle_operand(insn.Op1, 0, insn);
 	if (Feature & CF_CHG2) handle_operand(insn.Op2, 0, insn);
+	if (Feature & CF_CHG3) handle_operand(insn.Op3, 0, insn);
+	if (Feature & CF_CHG4) handle_operand(insn.Op4, 0, insn);
+	if (Feature & CF_CHG5) handle_operand(insn.Op5, 0, insn);
+	if (Feature & CF_CHG6) handle_operand(insn.Op6, 0, insn);
+	if (Feature & CF_CHG7) handle_operand(insn.Op7, 0, insn);
+	if (Feature & CF_CHG8) handle_operand(insn.Op8, 0, insn);
+
 	if (Feature & CF_JUMP)
 		remember_problem(PR_JUMP, insn.ea);
 
@@ -214,10 +253,15 @@ int m65816_t::emu(const insn_t& insn)
 		uint8 x_flag = flag_data & 0x10;
 		uint8 val = (insn.itype == M65816_rep) ? 0 : 1;
 
-		if (m_flag)
+
+		if (m_flag) {
 			split_sreg_range(insn.ea + 2, rFm, val, SR_auto);
-		if (x_flag)
+			split_sreg_range(insn.ea + 2, rOm, val ? 0 : 1, SR_auto);
+		}
+		if (x_flag) {
 			split_sreg_range(insn.ea + 2, rFx, val, SR_auto);
+			split_sreg_range(insn.ea + 2, rOx, val ? 0 : 1, SR_auto);
+		}
 	}
 	break;
 
@@ -246,7 +290,7 @@ int m65816_t::emu(const insn_t& insn)
 			else
 				ftea = xlat(ftea);
 
-			xfer_sreg(insn.ea, ftea);
+			xfer_sregs(insn, ftea);
 
 			//split_sreg_range(ftea, rFm, get_sreg(insn.ea, rFm), SR_auto);
 			//split_sreg_range(ftea, rFx, get_sreg(insn.ea, rFx), SR_auto);
@@ -255,6 +299,18 @@ int m65816_t::emu(const insn_t& insn)
 			//split_sreg_range(ftea, rB, get_sreg(insn.ea, rB), SR_auto);
 			//split_sreg_range(ftea, rDs, get_sreg(insn.ea, rDs), SR_auto);
 			//split_sreg_range(ftea, rD, get_sreg(insn.ea, rD), SR_auto);
+
+			if (insn.itype == M65816_jsl || insn.itype == M65816_jsr) {
+
+				func_t* func = get_func(ftea);
+				if (!func) {
+					add_func(ftea);
+					func = get_func(ftea);
+				}
+
+				if (func)
+					xfer_sregs_return(insn, func);
+			}
 		}
 	}
 	break;
@@ -290,14 +346,37 @@ int m65816_t::emu(const insn_t& insn)
 		ea_t ea = backtrack_prev_ins(insn.ea, M65816_php);
 		if (ea != BADADDR)
 		{
-			uint16 p = get_cpu_status(ea);
-			split_sreg_range(insn.ea + insn.size, rFm, (p >> 5) & 0x1, SR_auto);
-			split_sreg_range(insn.ea + insn.size, rFx, (p >> 4) & 0x1, SR_auto);
+			xfer_sregs_short(ea, insn.ea + insn.size);
+			/*		uint16 p = get_cpu_status(ea);
+					split_sreg_range(insn.ea + insn.size, rFm, (p >> 5) & 0x1, SR_auto);
+					split_sreg_range(insn.ea + insn.size, rFx, (p >> 4) & 0x1, SR_auto);
+					split_sreg_range(insn.ea + insn.size, rOm, (p >> 10) & 0x1, SR_auto);
+					split_sreg_range(insn.ea + insn.size, rOx, (p >> 9) & 0x1, SR_auto);*/
 		}
 	}
 	break;
+
+	//case M65816_bcc:
+	//case M65816_bcs:
+	//case M65816_beq:
+	//case M65816_bmi:
+	//case M65816_bne:
+	//case M65816_bpl:
+	//case M65816_bra:
+	//case M65816_bvc:
+	//case M65816_bvs:
+	//case M65816_brl:
+
+	//	{
+	//		ea_t ftea = map_code_ea(insn, insn.Op1);
+
+	//		split_sreg_range(ftea, rFm, get_sreg(insn.ea, rFm), SR_auto);
+	//		split_sreg_range(ftea, rFx, get_sreg(insn.ea, rFx), SR_auto);
+	//	}
+
+	//	break;
 	}
 
 	return 1;
-	}
+}
 

@@ -136,6 +136,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="bt.hpp" />
+    <ClInclude Include="ida\gaia_cop.hpp" />
+    <ClInclude Include="ida\soul_cop.hpp" />
     <ClInclude Include="ins.hpp" />
     <ClInclude Include="m65816.hpp" />
     <ClInclude Include="util.hpp" />

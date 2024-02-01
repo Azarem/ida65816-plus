@@ -339,13 +339,13 @@ const struct opcode_info_t& get_opcode_info(uint8 opcode)
 }
 
 // ---------------------------------------------------------------------------
-inline bool is_acc_16_sensitive_op(const struct opcode_info_t& opinfo)
+inline static bool is_acc_16_sensitive_op(const struct opcode_info_t& opinfo)
 {
 	return (opinfo.flags & ACC16_INCBC) == ACC16_INCBC;
 }
 
 // ---------------------------------------------------------------------------
-inline bool is_xy_16_sensitive_op(const struct opcode_info_t& opinfo)
+inline static bool is_xy_16_sensitive_op(const struct opcode_info_t& opinfo)
 {
 	return (opinfo.flags & XY16_INCBC) == XY16_INCBC;
 }
@@ -378,6 +378,9 @@ int m65816_t::ana(insn_t* _insn)
 		insn.Op1.type = o_imm;
 		insn.Op1.value = insn.get_next_byte();
 		insn.Op1.dtype = dt_byte;
+
+		process_cop(insn);
+
 		break;
 	case STACK_ABS:
 		// Always 16 bits
@@ -427,23 +430,11 @@ int m65816_t::ana(insn_t* _insn)
 		break;
 	case ABS:
 		insn.Op1.type = o_mem;
-		insn.Op1.addr = insn.get_next_word();
+		ftea = insn.Op1.addr = insn.get_next_word();
 		insn.Op1.dtype = dt_word;
-		insn.Op1.full_target_ea = insn.Op1.addr;
+		insn.Op1.full_target_ea = ftea;
 		if (insn.itype == M65816_jsr || insn.itype == M65816_jmp)
-		{
 			insn.Op1.type = o_near;
-			/*		ftea = map_code_ea(insn, insn.Op1);
-					func_t* func = get_func(ftea);
-					if (!func) {
-						add_func(ftea);
-						func = get_func(ftea);
-					}
-
-					if (func) {
-						xfer_sreg(func->end_ea - 1, insn.ea + insn.size);
-					}*/
-		}
 		else if (insn.itype == M65816_stx || insn.itype == M65816_sty
 			|| insn.itype == M65816_ldx || insn.itype == M65816_ldy
 			|| insn.itype == M65816_cpx || insn.itype == M65816_cpy)
@@ -458,22 +449,10 @@ int m65816_t::ana(insn_t* _insn)
 	case ABS_LONG:
 		insn.Op1.type = o_mem_far;
 		insn.Op1.addr = insn.get_next_word();
-		ftea = insn.Op1.addr |= static_cast<unsigned long long>(insn.get_next_byte()) << 16;
+		ftea = insn.Op1.addr |= ea_t(insn.get_next_byte()) << 16;
 		insn.Op1.full_target_ea = ftea;
 		if (insn.itype == M65816_jsl || insn.itype == M65816_jml)
-		{
 			insn.Op1.type = o_far;
-
-			/*	func_t* func = get_func(ftea);
-				if (!func) {
-					add_func(ftea);
-					func = get_func(ftea);
-				}
-
-				if (func) {
-					xfer_sreg(func->end_ea - 1, insn.ea + insn.size);
-				}*/
-		}
 		else
 			insn.Op1.dtype = is_acc_16_bits(insn) ? dt_word : dt_byte;
 		break;
@@ -491,7 +470,7 @@ int m65816_t::ana(insn_t* _insn)
 		insn.Op1.type = o_displ;
 		insn.Op1.phrase = rAbsLX;
 		insn.Op1.addr = insn.get_next_word();
-		insn.Op1.addr |= insn.get_next_byte() << 16;
+		insn.Op1.addr |= ea_t(insn.get_next_byte()) << 16;
 		insn.Op1.dtype = is_acc_16_bits(insn) ? dt_word : dt_byte;
 		break;
 	case ABS_INDIR:
@@ -581,6 +560,10 @@ int m65816_t::ana(insn_t* _insn)
 			insn.Op1.addr = uint16(insn.ip + insn.size + x);
 			insn.Op1.full_target_ea = insn.Op1.addr;
 			insn.Op1.dtype = dt_word;
+
+			ftea = map_code_ea(insn, insn.Op1);
+
+			xfer_sregs_short(insn, ftea);
 		}
 		break;
 	case PC_REL_LONG:
@@ -590,6 +573,10 @@ int m65816_t::ana(insn_t* _insn)
 			insn.Op1.addr = uint16(insn.ip + insn.size + x) | (insn.ea & 0xff0000);
 			insn.Op1.full_target_ea = insn.Op1.addr;
 			insn.Op1.dtype = dt_word;
+
+			ftea = map_code_ea(insn, insn.Op1);
+
+			xfer_sregs_short(insn, ftea);
 		}
 		break;
 	case BLK_MOV:
