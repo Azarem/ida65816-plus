@@ -4,6 +4,7 @@
 #include <segregs.hpp>
 #include <diskio.hpp>
 #include <cvt64.hpp>
+#include <typeinf.hpp>
 
 #include "m65816.hpp"
 int data_id;
@@ -167,6 +168,7 @@ static ssize_t idaapi notify(void*, int msgid, va_list)
 		return size_t(SET_MODULE_DATA(m65816_t));
 	return 0;
 }
+
 
 //----------------------------------------------------------------------
 ssize_t idaapi m65816_t::on_event(ssize_t msgid, va_list va)
@@ -435,6 +437,60 @@ ssize_t idaapi m65816_t::on_event(ssize_t msgid, va_list va)
 		outctx_t* ctx = va_arg(va, outctx_t*);
 		const op_t* op = va_arg(va, const op_t*);
 		return out_opnd(*ctx, *op) ? 1 : -1;
+	}
+
+	case processor_t::ev_out_data:
+	{
+		outctx_t* ctx = va_arg(va, outctx_t*);
+		const bool analyze_only = va_arg(va, const bool);
+		if (!analyze_only) {
+			ea_t ref = get_first_dref_from(ctx->insn_ea);
+			if (ref < 0 || ref > 0x100000000) {
+				opinfo_t op = opinfo_t();
+				get_opinfo(&op, ctx->insn_ea, 0, ctx->F);
+				//qstring name = get_struc_name(op.tid, ctx->F);
+				//search_addr_member(ctx, op.tid);
+				
+				if (op.tid != BADADDR) {
+					qstring qs;
+					ea_t addr;
+
+					//Check for addr
+					if (get_struc_name(&qs, op.tid) && qs.compare("addr") == 0) {
+						addr = ea_t(get_byte(ctx->insn_ea + 2)) << 16 | get_word(ctx->insn_ea);
+						addr = xlat(addr);
+						add_dref(ctx->insn_ea, addr, dr_R);
+					}
+					else {
+						const struc_t* struc = get_struc(op.tid);
+						asize_t offset = 0;
+						asize_t size = get_struc_size(op.tid);
+
+						while (offset < size) {
+							tinfo_t tinfo;
+							member_t* member = get_member(struc, offset);
+							if (get_member_tinfo(&tinfo, member) && tinfo.is_struct() && tinfo.get_type_name(&qs)) {
+								if (qs.compare("addr") == 0) {
+									addr = ea_t(get_byte(ctx->insn_ea + offset + 2)) << 16 | get_word(ctx->insn_ea + offset);
+									addr = xlat(addr);
+									//addr = map_data_ea(ctx->insn, addr, 0);
+									add_dref(ctx->insn_ea, addr, dr_R);
+
+								}
+								else {
+									/*type_t typ = tinfo.get_decltype();
+									udt_type_data_t udt;
+									tinfo.get_udt_details(&udt);
+									tinfo.get_til*/
+								}
+							}
+							offset += member->get_size();
+						}
+					}
+				}
+			}
+		}
+		return 0;
 	}
 
 #ifdef ENABLE_MERGE

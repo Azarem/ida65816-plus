@@ -110,16 +110,20 @@ void m65816_t::handle_operand(const op_t& x, bool read_access, const insn_t& ins
 		if (x.addr) {
 			if (x.dtype == dt_dword)
 				ea = xlat(x.addr);
+			else
+				ea = insn.ea & ~0xFFFF | x.addr;
 			if (x.specflag3) { //Is code?
 
-				if (x.dtype != dt_dword)
-					ea = map_code_ea(insn, x);
-				insn.add_cref(ea, x.offb, fl_CN);
+			/*	if (x.dtype != dt_dword)
+					ea = map_code_ea(insn, x);*/
+				insn.add_cref(ea, x.offb, fl_JF);
+				//add_cref(insn.ea, ea, fl_JF);
 			}
 			else {
-				if (x.dtype != dt_dword)
-					ea = map_data_ea(insn, x);
+				/*if (x.dtype != dt_dword)
+					ea = map_data_ea(insn, x);*/
 				insn.add_dref(ea, x.offb, read_access ? dr_R : dr_W);
+				//add_dref(insn.ea, ea, dr_R);
 			}
 		}
 
