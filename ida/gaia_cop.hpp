@@ -89,7 +89,7 @@ static const struct cop_def cop_lst[0x100] = {
 	{ 0x4C, 1, "b" }, //^
 	{ 0x4D, 2, "w" },
 	{ 0x4E, 2, "w" },
-	{ 0x4F, 7, "Oww" },
+	{ 0x4F, 7, "Oww" }, // queue_dma(src, dst, size)
 	{ 0x50, 6, "Obbb" },
 	{ 0x51, 6, "OO" },
 	{ 0x52, 3, "bbb" },
@@ -107,7 +107,7 @@ static const struct cop_def cop_lst[0x100] = {
 	{ 0x5E, 2, "c" },
 	{ 0x5F, 3, "wb" },
 	{ 0x60, 2, "bb" }, 
-	{ 0x61, 4, "ww" },
+	{ 0x61, 4, "Ob" },
 	{ 0x62, 3, "bc" },
 	{ 0x63, 3, "bbb" },
 	{ 0x64 },
